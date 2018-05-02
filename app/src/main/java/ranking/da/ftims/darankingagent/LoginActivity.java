@@ -38,6 +38,9 @@ public class LoginActivity extends AppCompatActivity {
     private View mProgressView;
     private View mLoginFormView;
 
+    static Retrofit retrofit;
+    static DARankingAppService service;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -164,8 +167,6 @@ public class LoginActivity extends AppCompatActivity {
 
 
     public class UserLoginTask {
-        private Retrofit retrofit;
-        private DARankingAppService service;
         private TokenCredentials token;
         private DARankingAppCredentials credentials;
         private DARankingAppDriver driver;
@@ -190,9 +191,8 @@ public class LoginActivity extends AppCompatActivity {
                         if(response.isSuccessful()){
                             Log.i("DA", "Success: " + response.body().toString());
                             String responseHeader = response.headers().get("Authorization");
-                            token = new TokenCredentials();
-                            token.setTokenId(responseHeader);
-                            Log.i("DA", token.getTokenId());
+                            TokenCredentials.tokenId = responseHeader;
+                            Log.i("DA", TokenCredentials.tokenId);
                             getDriver();
                         }
                     }
@@ -210,7 +210,7 @@ public class LoginActivity extends AppCompatActivity {
 
         public void getDriver() {
             Log.i("DA", "getDriver");
-            Call<DARankingAppDriver> driverCall = service.getDriver(token.getTokenId(), credentials.username);
+            Call<DARankingAppDriver> driverCall = service.getDriver(TokenCredentials.tokenId, credentials.username);
             try {
                 driverCall.enqueue(new Callback<DARankingAppDriver>() {
                     @Override

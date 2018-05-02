@@ -20,4 +20,9 @@ public interface DARankingAppService {
     @GET("/api/drivers/{user}")
     Call<DARankingAppDriver> getDriver(@Header("Authorization") String authorization, @Path("user") String user);
 
+    @Headers({"Accept: application/json",
+            "Content-Type: application/json"})
+    @POST("/api/tripAgent")
+    Call<TripSyncResponse> createTripFromAgent(@Header("Authorization") String authorization, @Body TripVM tripVM);
+
 }

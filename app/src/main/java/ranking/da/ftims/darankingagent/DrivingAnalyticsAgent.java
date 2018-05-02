@@ -23,10 +23,17 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class DrivingAnalyticsAgent extends AppCompatActivity implements LocationListener {
 
     private static final Integer CALCULATION_POINTS = 2;
+    private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.getDefault());
+    private static final SimpleDateFormat SDF_AGENT = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault());
     private static Trip trip;
     private SharedPreferences sharedPreferences;
     private DARankingAppDriver driver;
@@ -71,13 +78,23 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         onGpsServiceUpdate = new Trip.onGpsServiceUpdate() {
             @Override
             public void update() {
-                int maxSpeedTemp = trip.getMaxSpeed().intValue();
-                String displaySpeed = String.valueOf(maxSpeedTemp);
                 int distanceTemp = trip.getDistance().intValue();
                 String displayDist = String.valueOf(distanceTemp);
-
-                mSpeedView.setText(displaySpeed);
-                mSpeedView.setText(displayDist);
+                mDistanceView.setText(displayDist);
+                int speedLimit = trip.getSpeedLimit();
+                String displaySpeedLimit = String.valueOf(speedLimit);
+                mSpeedLimitView.setText(displaySpeedLimit);
+                if(trip.isSpeeding()){
+                    mStatusBarView.setText("Speeding!");
+                    String displayMaxspeed = trip.getMaxSpeed().toString();
+                    mSpeedingVMaxView.setText(displayMaxspeed);
+                    int speedingDist = trip.getSpeedingDistance().intValue();
+                    String displaySpeedingDist = String.valueOf(speedingDist);
+                    mSpeedingDistView.setText(displaySpeedingDist);
+                }
+                else{
+                    mStatusBarView.setText("Safe driving :)");
+                }
             }
         };
 
@@ -158,8 +175,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
             trip.setRunning(true);
             Date now = Calendar.getInstance().getTime();
             trip.setStartDate(now);
-            DateFormat df = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy");
-            String displayNow = df.format(now);
+            String displayNow = SDF_AGENT.format(now);
             mStartDateTime.setText(displayNow);
             mTimeView.setBase(SystemClock.elapsedRealtime() - trip.getTime());
             mTimeView.start();
@@ -188,9 +204,39 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         stopService(new Intent(getBaseContext(), DALocationService.class));
     }
 
-    public void onSyncTripClick(View v){
+    public void onSyncTripClick(final View v){
         Log.i("DA", "Sending trip to server...");
-        onResetClick(v);
+        TripVM tripVM = new TripVM();
+        tripVM.distance = trip.getDistance().longValue();
+        tripVM.driver = trip.getDriver().id;
+        tripVM.duration = trip.getTime();
+        tripVM.maxSpeedingVelocity = trip.getMaxSpeed();
+        tripVM.speedingDistance = trip.getSpeedingDistance().longValue();
+        tripVM.start = SDF.format(trip.getStartDate());
+        tripVM.suddenAccelerations = trip.getSuddenAccNo();
+        tripVM.suddenBrakings = trip.getSuddenBrakingNo();
+        Log.i("DA", tripVM.toString());
+
+        Call<TripSyncResponse> TripSyncResponse = LoginActivity.service.createTripFromAgent(TokenCredentials.tokenId, tripVM);
+        try{
+            TripSyncResponse.enqueue(new Callback<TripSyncResponse>() {
+                @Override
+                public void onResponse(Call<TripSyncResponse> call, Response<TripSyncResponse> response) {
+                    if(response.isSuccessful()){
+                        Log.i("DA", "Success: " + response.body().toString());
+                        onResetClick(v);
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<TripSyncResponse> call, Throwable t) {
+                    Log.e("DA", "Fail: " + t.toString());
+                }
+            });
+        }
+        catch(Exception e){
+            Log.e("DA", "Exception: " + e.toString());
+        }
     }
 
     public void resetData(){
@@ -272,7 +318,6 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         }else{
             firstfix = true;
         }
-
         if (location.hasSpeed()) {
             Float speed = location.getSpeed() * 3.6f;
             String displaySpeed = String.valueOf(speed.intValue());

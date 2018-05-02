@@ -21,6 +21,8 @@ public class DALocationService extends Service implements LocationListener {
     double currentLattitude = 0;
     double lastLongitude = 0;
     double lastLattitude = 0;
+    Integer lastSpeedLimit = 0;
+    Integer currentSpeedLimit = 0;
 
     PendingIntent contentIntent;
 
@@ -62,30 +64,42 @@ public class DALocationService extends Service implements LocationListener {
         if (trip.isRunning()) {
             currentLattitude = location.getLatitude();
             currentLongitude = location.getLongitude();
-
             if (trip.isFirstTime()) {
                 lastLattitude = currentLattitude;
                 lastLongitude = currentLongitude;
                 trip.setFirstTime(false);
             }
-
             lastlocation.setLatitude(lastLattitude);
             lastlocation.setLongitude(lastLongitude);
+            currentSpeedLimit = 5;
+            if(currentSpeedLimit != null){
+                trip.setSpeedLimit(currentSpeedLimit);
+                lastSpeedLimit = currentSpeedLimit;
+            }
             double distance = lastlocation.distanceTo(location);
-
             if (location.getAccuracy() < distance) {
                 trip.addDistance(distance);
-
                 lastLattitude = currentLattitude;
                 lastLongitude = currentLongitude;
             }
-
             if (location.hasSpeed()) {
-                trip.setCurSpeed(location.getSpeed() * 3.6);
+                Double speed = location.getSpeed() * 3.6d;
+                trip.setCurSpeed(speed);
                 if (location.getSpeed() == 0) {
                     new isStillStopped().execute();
                 }
             }
+            if(trip.getCurSpeed().intValue() > trip.getSpeedLimit() ){
+                trip.addSpeedingDistance(distance);
+                int maxSpeed = trip.getCurSpeed().intValue() - trip.getSpeedLimit();
+                if(trip.getMaxSpeed()<maxSpeed){
+                    trip.setMaxSpeed(maxSpeed);
+                }
+                trip.setSpeeding(true);
+            }else{
+                trip.setSpeeding(false);
+            }
+
             trip.update();
             updateNotification(true);
         }
