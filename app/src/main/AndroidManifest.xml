@@ -3,6 +3,8 @@
     package="ranking.da.ftims.darankingagent">
 
     <!-- To auto-complete the email text field in the login form with the user's emails -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.INTERNET"/>
@@ -25,6 +27,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".DrivingAnalyticsAgent"></activity>
+        <service android:name=".DALocationService"/>
     </application>
 
 </manifest>

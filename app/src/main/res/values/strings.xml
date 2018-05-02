@@ -11,4 +11,7 @@
     <string name="error_invalid_password">This password is too short</string>
     <string name="error_incorrect_password">This password is incorrect</string>
     <string name="error_field_required">This field is required</string>
+    <string name="notification">Max Speed : %1$s, Distance : %2$s.</string>
+    <string name="running">Trip in process…</string>
+    <string name="noti_id" translatable="false">DARankingAppAgent</string>
 </resources>
