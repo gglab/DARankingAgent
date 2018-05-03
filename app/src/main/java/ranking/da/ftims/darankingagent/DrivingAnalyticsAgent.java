@@ -1,6 +1,5 @@
 package ranking.da.ftims.darankingagent;
 
-import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -19,7 +18,6 @@ import android.widget.TextView;
 
 import com.google.gson.Gson;
 
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -78,7 +76,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         onGpsServiceUpdate = new Trip.onGpsServiceUpdate() {
             @Override
             public void update() {
-                int distanceTemp = trip.getDistance().intValue();
+                long distanceTemp = trip.getDistance();
                 String displayDist = String.valueOf(distanceTemp);
                 mDistanceView.setText(displayDist);
                 int speedLimit = trip.getSpeedLimit();
@@ -88,7 +86,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                     mStatusBarView.setText("Speeding!");
                     String displayMaxspeed = trip.getMaxSpeed().toString();
                     mSpeedingVMaxView.setText(displayMaxspeed);
-                    int speedingDist = trip.getSpeedingDistance().intValue();
+                    long speedingDist = trip.getSpeedingDistance();
                     String displaySpeedingDist = String.valueOf(speedingDist);
                     mSpeedingDistView.setText(displaySpeedingDist);
                 }
@@ -140,20 +138,15 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                     time = trip.getTime();
                 }
 
-                int h   = (int)(time /3600000);
-                int m = (int)(time  - h*3600000)/60000;
-                int s= (int)(time  - h*3600000 - m*60000)/1000 ;
-                String hh = h < 10 ? "0"+h: h+"";
-                String mm = m < 10 ? "0"+m: m+"";
-                String ss = s < 10 ? "0"+s: s+"";
-                chrono.setText(hh+":"+mm+":"+ss);
+                String displayTime = getTimeString(time);
+                chrono.setText(displayTime);
 
                 if (trip.isRunning()){
-                    chrono.setText(hh+":"+mm+":"+ss);
+                    chrono.setText(displayTime);
                 } else {
                     if (isPair) {
                         isPair = false;
-                        chrono.setText(hh+":"+mm+":"+ss);
+                        chrono.setText(displayTime);
                     }else{
                         isPair = true;
                         chrono.setText("");
@@ -207,11 +200,11 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
     public void onSyncTripClick(final View v){
         Log.i("DA", "Sending trip to server...");
         TripVM tripVM = new TripVM();
-        tripVM.distance = trip.getDistance().longValue();
+        tripVM.distance = trip.getDistance();
         tripVM.driver = trip.getDriver().id;
-        tripVM.duration = trip.getTime();
+        tripVM.duration = getTimeString(trip.getTime());
         tripVM.maxSpeedingVelocity = trip.getMaxSpeed();
-        tripVM.speedingDistance = trip.getSpeedingDistance().longValue();
+        tripVM.speedingDistance = trip.getSpeedingDistance();
         tripVM.start = SDF.format(trip.getStartDate());
         tripVM.suddenAccelerations = trip.getSuddenAccNo();
         tripVM.suddenBrakings = trip.getSuddenBrakingNo();
@@ -227,7 +220,6 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                         onResetClick(v);
                     }
                 }
-
                 @Override
                 public void onFailure(Call<TripSyncResponse> call, Throwable t) {
                     Log.e("DA", "Fail: " + t.toString());
@@ -329,6 +321,28 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         Double lon = location.getLongitude();
         String displayLongitude = String.format("%.6f", lon);
         mLongitudeView.setText(displayLongitude);
+    }
+
+    private String getTimeString(long time){
+        StringBuffer result = new StringBuffer();
+        int h   = (int)(time /3600000);
+        int m = (int)(time  - h*3600000)/60000;
+        int s= (int)(time  - h*3600000 - m*60000)/1000 ;
+        if(h<10){
+            result.append("0");
+        }
+        result.append(h);
+        result.append(":");
+        if(m<10){
+            result.append("0");
+        }
+        result.append(m);
+        result.append(":");
+        if(s<10){
+            result.append("0");
+        }
+        result.append(s);
+        return result.toString();
     }
 
 

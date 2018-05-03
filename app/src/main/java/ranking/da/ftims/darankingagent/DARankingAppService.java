@@ -17,8 +17,8 @@ public interface DARankingAppService {
 
     @Headers({"Accept: application/json",
             "Content-Type: application/json"})
-    @GET("/api/drivers/{user}")
-    Call<DARankingAppDriver> getDriver(@Header("Authorization") String authorization, @Path("user") String user);
+    @GET("/api/driverByUser/{user}")
+    Call<DARankingAppDriver> getDriverByUser(@Header("Authorization") String authorization, @Path("user") String user);
 
     @Headers({"Accept: application/json",
             "Content-Type: application/json"})

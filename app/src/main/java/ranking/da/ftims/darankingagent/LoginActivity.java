@@ -210,7 +210,7 @@ public class LoginActivity extends AppCompatActivity {
 
         public void getDriver() {
             Log.i("DA", "getDriver");
-            Call<DARankingAppDriver> driverCall = service.getDriver(TokenCredentials.tokenId, credentials.username);
+            Call<DARankingAppDriver> driverCall = service.getDriverByUser(TokenCredentials.tokenId, credentials.username);
             try {
                 driverCall.enqueue(new Callback<DARankingAppDriver>() {
                     @Override
@@ -238,6 +238,7 @@ public class LoginActivity extends AppCompatActivity {
         public void startApp(){
             Intent i = new Intent(LoginActivity.this, DrivingAnalyticsAgent.class);
             i.putExtra("driver", driver);
+            Log.i("DA", "Start DARankingAgent...");
             startActivity(i);
         }
     }

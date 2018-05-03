@@ -76,22 +76,22 @@ public class DALocationService extends Service implements LocationListener {
                 trip.setSpeedLimit(currentSpeedLimit);
                 lastSpeedLimit = currentSpeedLimit;
             }
-            double distance = lastlocation.distanceTo(location);
+            Float distance = lastlocation.distanceTo(location);
             if (location.getAccuracy() < distance) {
-                trip.addDistance(distance);
+                trip.addDistance(distance.longValue());
                 lastLattitude = currentLattitude;
                 lastLongitude = currentLongitude;
             }
             if (location.hasSpeed()) {
                 Double speed = location.getSpeed() * 3.6d;
-                trip.setCurSpeed(speed);
+                trip.setCurSpeed(speed.intValue());
                 if (location.getSpeed() == 0) {
                     new isStillStopped().execute();
                 }
             }
-            if(trip.getCurSpeed().intValue() > trip.getSpeedLimit() ){
-                trip.addSpeedingDistance(distance);
-                int maxSpeed = trip.getCurSpeed().intValue() - trip.getSpeedLimit();
+            if(trip.getCurSpeed() > trip.getSpeedLimit() ){
+                trip.addSpeedingDistance(distance.longValue());
+                int maxSpeed = trip.getCurSpeed() - trip.getSpeedLimit();
                 if(trip.getMaxSpeed()<maxSpeed){
                     trip.setMaxSpeed(maxSpeed);
                 }

@@ -10,10 +10,10 @@ public class Trip {
     private Long timeStopped;
     private boolean isFirstTime;
     private Date startDate;
-    private Double distanceM;
-    private Double curSpeed;
+    private Long distanceM;
+    private Integer curSpeed;
     private Integer maxSpeed;
-    private Double speedingDistance;
+    private Long speedingDistance;
     private Integer suddenBrakingNo;
     private Integer suddenAccNo;
     private Integer speedLimit;
@@ -78,11 +78,11 @@ public class Trip {
 
     public Trip(onGpsServiceUpdate onGpsServiceUpdate, DARankingAppDriver driver){
         isRunning = false;
-        distanceM = 0.0;
-        curSpeed = 0.0;
+        distanceM = 0L;
+        curSpeed = 0;
         maxSpeed = 0;
         timeStopped = 0L;
-        speedingDistance = 0.0;
+        speedingDistance = 0L;
         suddenBrakingNo = 0;
         suddenAccNo = 0;
         time = 0L;
@@ -92,19 +92,19 @@ public class Trip {
         setOnGpsServiceUpdate(onGpsServiceUpdate);
     }
 
-    public void addDistance(double distance){
+    public void addDistance(long distance){
         distanceM = distanceM + distance;
     }
 
-    public Double getDistance(){
+    public Long getDistance(){
         return distanceM;
     }
 
-    public void addSpeedingDistance(double distance){
+    public void addSpeedingDistance(long distance){
         speedingDistance = speedingDistance + distance;
     }
 
-    public Double getSpeedingDistance(){
+    public Long getSpeedingDistance(){
         return speedingDistance;
     }
 
@@ -116,7 +116,7 @@ public class Trip {
         return maxSpeed;
     }
 
-    public void setCurSpeed(double curSpeed) {
+    public void setCurSpeed(int curSpeed) {
         this.curSpeed = curSpeed;
     }
 
@@ -140,7 +140,7 @@ public class Trip {
         this.timeStopped += timeStopped;
     }
 
-    public Double getCurSpeed() {
+    public Integer getCurSpeed() {
         return curSpeed;
     }
 

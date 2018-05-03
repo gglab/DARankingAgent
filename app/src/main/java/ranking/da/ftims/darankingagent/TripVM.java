@@ -7,7 +7,7 @@ public class TripVM implements Serializable {
 
     Long distance;
     String driver;
-    Long duration;
+    String duration;
     Integer maxSpeedingVelocity;
     Long speedingDistance;
     String start;
