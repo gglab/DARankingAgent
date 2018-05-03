@@ -7,9 +7,9 @@ import retrofit2.http.Headers;
 import retrofit2.http.Path;
 
 public interface GisService {
-//
-//    @Headers({"Accept: application/json",
-//            "Content-Type: application/json"})
-//    @GET("/api/drivers/{user}")
-//    Call<DARankingAppDriver> getDriver(@Header("Authorization") String authorization, @Path("user") String user);
+
+    @Headers({"Accept: application/json",
+            "Content-Type: application/json"})
+    @GET("/api/gisSpeedingLimit/{latitude}/{longitude}")
+    Call<ResponseGisSpeedLimit> getGisSpeedingLimit(@Header("Authorization") String authorization, @Path("latitude") double latitude, @Path("longitude") double longitude);
 }

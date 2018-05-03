@@ -3,6 +3,10 @@ package ranking.da.ftims.darankingagent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -26,10 +30,13 @@ import java.util.Locale;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
-public class DrivingAnalyticsAgent extends AppCompatActivity implements LocationListener {
+public class DrivingAnalyticsAgent extends AppCompatActivity implements LocationListener, SensorEventListener {
 
-    private static final Integer CALCULATION_POINTS = 2;
+    //private static final Integer CALCULATION_POINTS = 2;
+    private static final String GIS_PORT = "8081";
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.getDefault());
     private static final SimpleDateFormat SDF_AGENT = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault());
     private static Trip trip;
@@ -58,8 +65,19 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
     private FloatingActionButton syncTripButton;
 
     private LocationManager locManager;
-    private LocationListener locListener;
-    private Trip.onGpsServiceUpdate onGpsServiceUpdate;
+    //private LocationListener locListener;
+    private Trip.onServiceUpdate onServiceUpdate;
+
+    private SensorManager senManager;
+    private Sensor gSensor;
+
+    private long lastUpdate;
+    private static final float NOISE_THRESHOLD = 2f;
+    private float last_x = 0f, last_y = 0f, last_z = 0f, last_v =0f;
+
+    private String url;
+    private Retrofit retrofit;
+    static GisService gisService;
 
     private boolean firstfix;
 
@@ -69,11 +87,13 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         Log.i("DA", "DrivingAnalyticsAgent");
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         driver = (DARankingAppDriver) getIntent().getSerializableExtra("driver");
+        initGisService();
+
         setContentView(R.layout.activity_driving_analytics_agent);
 
-        trip = new Trip(onGpsServiceUpdate, driver);
+        trip = new Trip(onServiceUpdate, driver);
 
-        onGpsServiceUpdate = new Trip.onGpsServiceUpdate() {
+        onServiceUpdate = new Trip.onServiceUpdate() {
             @Override
             public void update() {
                 long distanceTemp = trip.getDistance();
@@ -89,8 +109,15 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                     long speedingDist = trip.getSpeedingDistance();
                     String displaySpeedingDist = String.valueOf(speedingDist);
                     mSpeedingDistView.setText(displaySpeedingDist);
-                }
-                else{
+                }else if(trip.isSuddenBreaking()){
+                    mStatusBarView.setText("Sudden Breaking!");
+                    String displaySudddenBreaking = trip.getSuddenBrakingNo().toString();
+                    mBraksNoView.setText(displaySudddenBreaking);
+                }else if(trip.isSuddenAcc()){
+                    mStatusBarView.setText("Sudden Acceleration!");
+                    String displaySudddenAcc = trip.getSuddenAccNo().toString();
+                    mAccNoView.setText(displaySudddenAcc);
+                }else{
                     mStatusBarView.setText("Safe driving :)");
                 }
             }
@@ -156,10 +183,23 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
             }
         });
 
+        lastUpdate = System.currentTimeMillis();
         Log.i("DA", "LocationManager");
         locManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        senManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+        gSensor = senManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        senManager.registerListener(this, gSensor, SensorManager.SENSOR_DELAY_NORMAL);
         //locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
         //locManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 500, 0, locListener);
+    }
+
+    private void initGisService(){
+        url = (String) getIntent().getSerializableExtra("url");
+        StringBuffer server = new StringBuffer(url.substring(0, url.lastIndexOf(':') + 1));
+        server.append(":");
+        server.append(GIS_PORT);
+        retrofit = new Retrofit.Builder().baseUrl(server.toString()).addConverterFactory((GsonConverterFactory.create())).build();
+        gisService = retrofit.create(GisService.class);
     }
 
     public void onStartClick(View v){
@@ -244,7 +284,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         mSpeedView.setText("");
         mDistanceView.setText("");
         mTimeView.setText("00:00:00");
-        trip = new Trip(onGpsServiceUpdate, driver);
+        trip = new Trip(onServiceUpdate, driver);
     }
 
     @Override
@@ -268,9 +308,9 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
             trip = gson.fromJson(json, Trip.class);
         }
         if (trip == null){
-            trip = new Trip(onGpsServiceUpdate, driver);
+            trip = new Trip(onServiceUpdate, driver);
         }else{
-            trip.setOnGpsServiceUpdate(onGpsServiceUpdate);
+            trip.setOnGpsServiceUpdate(onServiceUpdate);
         }
 
         if (locManager.getAllProviders().indexOf(LocationManager.GPS_PROVIDER) >= 0) {
@@ -345,7 +385,6 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         return result.toString();
     }
 
-
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
         Log.i("DA", "Status changed ");
@@ -381,6 +420,41 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
 
     @Override
     public void onProviderDisabled(String provider) {
+
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            float x = event.values[0];
+            float y = event.values[1];
+            float z = event.values[2];
+            long curTime = System.currentTimeMillis();
+            if ((curTime - lastUpdate) > 1000) {
+                long diffTime = (curTime - lastUpdate);
+                lastUpdate = curTime;
+                float g = (x * x + y * y + z * z)/(SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH);
+                float v = Math.abs(x + y + z - last_x - last_y - last_z)/ diffTime * 10000;
+                if (NOISE_THRESHOLD > g) {
+                    g = 0f;
+                    v = 0f;
+                }
+                StringBuffer sb = new StringBuffer();
+                sb.append(g);
+                sb.append(" m/s2 ");
+                sb.append(v);
+                sb.append(" m/s");
+                mGView.setText(sb.toString());
+                last_x = x;
+                last_y = y;
+                last_z = z;
+                last_v = v;
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
 }

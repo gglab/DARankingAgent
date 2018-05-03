@@ -6,6 +6,8 @@ public class Trip {
 
     private boolean isRunning;
     private boolean isSpeeding;
+    private boolean isSuddenAcc;
+    private boolean isSuddenBreaking;
     private Long time;
     private Long timeStopped;
     private boolean isFirstTime;
@@ -20,7 +22,7 @@ public class Trip {
 
     private final DARankingAppDriver driver;
 
-    private onGpsServiceUpdate onGpsServiceUpdate;
+    private onServiceUpdate onServiceUpdate;
 
     public DARankingAppDriver getDriver() {
         return driver;
@@ -30,16 +32,32 @@ public class Trip {
         return suddenBrakingNo;
     }
 
-    public void setSuddenBrakingNo(Integer suddenBrakingNo) {
-        this.suddenBrakingNo = suddenBrakingNo;
+    public void addSuddenBrakingNo() {
+        this.suddenBrakingNo ++;
     }
 
     public Integer getSuddenAccNo() {
         return suddenAccNo;
     }
 
-    public void setSuddenAccNo(Integer suddenAccNo) {
-        this.suddenAccNo = suddenAccNo;
+    public void addSuddenAccNo() {
+        this.suddenAccNo ++;
+    }
+
+    public boolean isSuddenAcc() {
+        return isSuddenAcc;
+    }
+
+    public void setSuddenAcc(boolean suddenAcc) {
+        isSuddenAcc = suddenAcc;
+    }
+
+    public boolean isSuddenBreaking() {
+        return isSuddenBreaking;
+    }
+
+    public void setSuddenBreaking(boolean suddenBreaking) {
+        isSuddenBreaking = suddenBreaking;
     }
 
     public boolean isSpeeding() {
@@ -64,19 +82,19 @@ public class Trip {
         this.speedLimit = speedLimit;
     }
 
-    public interface onGpsServiceUpdate{
+    public interface onServiceUpdate{
         public void update();
     }
 
-    public void setOnGpsServiceUpdate(onGpsServiceUpdate onGpsServiceUpdate){
-        this.onGpsServiceUpdate = onGpsServiceUpdate;
+    public void setOnGpsServiceUpdate(onServiceUpdate onGpsServiceUpdate){
+        this.onServiceUpdate = onServiceUpdate;
     }
 
     public void update(){
-        onGpsServiceUpdate.update();
+        onServiceUpdate.update();
     }
 
-    public Trip(onGpsServiceUpdate onGpsServiceUpdate, DARankingAppDriver driver){
+    public Trip(onServiceUpdate onGpsServiceUpdate, DARankingAppDriver driver){
         isRunning = false;
         distanceM = 0L;
         curSpeed = 0;

@@ -38,8 +38,8 @@ public class LoginActivity extends AppCompatActivity {
     private View mProgressView;
     private View mLoginFormView;
 
-    static Retrofit retrofit;
-    static DARankingAppService service;
+    private Retrofit retrofit;
+    public static DARankingAppService service;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -237,6 +237,7 @@ public class LoginActivity extends AppCompatActivity {
 
         public void startApp(){
             Intent i = new Intent(LoginActivity.this, DrivingAnalyticsAgent.class);
+            i.putExtra("url", retrofit.baseUrl().toString());
             i.putExtra("driver", driver);
             Log.i("DA", "Start DARankingAgent...");
             startActivity(i);
