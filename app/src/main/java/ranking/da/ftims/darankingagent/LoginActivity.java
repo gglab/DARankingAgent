@@ -3,11 +3,16 @@ package ranking.da.ftims.darankingagent;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+
+import ranking.da.ftims.darankingagent.rest.DARankingAppCredentials;
+import ranking.da.ftims.darankingagent.rest.DARankingAppDriver;
+import ranking.da.ftims.darankingagent.rest.DARankingAppService;
+import ranking.da.ftims.darankingagent.rest.ResponseAuthentication;
+import ranking.da.ftims.darankingagent.rest.TokenCredentials;
 import retrofit2.Call;
 
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
-import android.os.AsyncTask;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -31,7 +36,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
  */
 public class LoginActivity extends AppCompatActivity {
 
-    private UserLoginTask mAuthTask = null;
+    private UserLoginTask mAuthTask;
     private EditText mLoginView;
     private EditText mPasswordView;
     private EditText mServerView;
@@ -45,6 +50,7 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
         mLoginView = (EditText) findViewById(R.id.login);
         mServerView = (EditText) findViewById(R.id.server);
         mPasswordView = (EditText) findViewById(R.id.password);
@@ -125,7 +131,6 @@ public class LoginActivity extends AppCompatActivity {
             mAuthTask = new UserLoginTask(server, login, password);
             mAuthTask.authenticateUser();
             showProgress(false);
-            //mAuthTask.startApp();
         }
     }
 
@@ -166,7 +171,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
 
-    public class UserLoginTask {
+    private class UserLoginTask {
         private TokenCredentials token;
         private DARankingAppCredentials credentials;
         private DARankingAppDriver driver;
@@ -175,9 +180,9 @@ public class LoginActivity extends AppCompatActivity {
             retrofit = new Retrofit.Builder().baseUrl(server).addConverterFactory((GsonConverterFactory.create())).build();
             service = retrofit.create(DARankingAppService.class);
             credentials = new DARankingAppCredentials();
-            credentials.password = password;
-            credentials.remeberMe = true;
-            credentials.username = login;
+            credentials.setPassword(password);
+            credentials.setRememberMe(true);
+            credentials.setUsername(login);
             Log.i("DA","UserLoginTask");
         }
 
@@ -191,12 +196,11 @@ public class LoginActivity extends AppCompatActivity {
                         if(response.isSuccessful()){
                             Log.i("DA", "Success: " + response.body().toString());
                             String responseHeader = response.headers().get("Authorization");
-                            TokenCredentials.tokenId = responseHeader;
-                            Log.i("DA", TokenCredentials.tokenId);
+                            TokenCredentials.setTokenId(responseHeader);
+                            Log.i("DA", TokenCredentials.getTokenId());
                             getDriver();
                         }
                     }
-
                     @Override
                     public void onFailure(Call<ResponseAuthentication> call, Throwable t) {
                         Log.e("DA", "Fail: " + t.toString());
@@ -210,7 +214,7 @@ public class LoginActivity extends AppCompatActivity {
 
         public void getDriver() {
             Log.i("DA", "getDriver");
-            Call<DARankingAppDriver> driverCall = service.getDriverByUser(TokenCredentials.tokenId, credentials.username);
+            Call<DARankingAppDriver> driverCall = service.getDriverByUser(TokenCredentials.getTokenId(), credentials.getUsername());
             try {
                 driverCall.enqueue(new Callback<DARankingAppDriver>() {
                     @Override
@@ -218,13 +222,12 @@ public class LoginActivity extends AppCompatActivity {
                         if (response.isSuccessful()) {
                             Log.i("DA", "Success: " + response.body().toString());
                             driver = response.body();
-                            Log.i("DA", driver.id);
-                            Log.i("DA", driver.name);
-                            Log.i("DA", driver.rank);
+                            Log.i("DA", driver.getId());
+                            Log.i("DA", driver.getName());
+                            Log.i("DA", driver.getRank());
                             startApp();
                         }
                     }
-
                     @Override
                     public void onFailure(Call<DARankingAppDriver> call, Throwable t) {
                         Log.e("DA", "Failed: " + t.toString());

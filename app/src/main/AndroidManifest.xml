@@ -27,7 +27,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".DrivingAnalyticsAgent"></activity>
-        <service android:name=".DALocationService"/>
+        <service android:name=".service.DALocationService"/>
     </application>
 
 </manifest>

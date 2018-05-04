@@ -1,6 +1,7 @@
-package ranking.da.ftims.darankingagent;
+package ranking.da.ftims.darankingagent.trip;
 
 import java.util.Date;
+import ranking.da.ftims.darankingagent.rest.DARankingAppDriver;
 
 public class Trip {
 
@@ -8,8 +9,8 @@ public class Trip {
     private boolean isSpeeding;
     private boolean isSuddenAcc;
     private boolean isSuddenBreaking;
+    private boolean isLimitForLocation;
     private Long time;
-    private Long timeStopped;
     private boolean isFirstTime;
     private Date startDate;
     private Long distanceM;
@@ -86,7 +87,7 @@ public class Trip {
         public void update();
     }
 
-    public void setOnGpsServiceUpdate(onServiceUpdate onGpsServiceUpdate){
+    public void setOnGpsServiceUpdate(onServiceUpdate onServiceUpdate){
         this.onServiceUpdate = onServiceUpdate;
     }
 
@@ -99,13 +100,15 @@ public class Trip {
         distanceM = 0L;
         curSpeed = 0;
         maxSpeed = 0;
-        timeStopped = 0L;
         speedingDistance = 0L;
         suddenBrakingNo = 0;
         suddenAccNo = 0;
         time = 0L;
-        speedLimit = 0;
+        speedLimit = 50;
         isSpeeding = false;
+        isLimitForLocation = false;
+        isSuddenAcc = false;
+        isSuddenBreaking = false;
         this.driver = driver;
         setOnGpsServiceUpdate(onGpsServiceUpdate);
     }
@@ -154,10 +157,6 @@ public class Trip {
         this.isRunning = isRunning;
     }
 
-    public void setTimeStopped(long timeStopped) {
-        this.timeStopped += timeStopped;
-    }
-
     public Integer getCurSpeed() {
         return curSpeed;
     }
@@ -168,5 +167,13 @@ public class Trip {
 
     public void setTime(long time) {
         this.time = time;
+    }
+
+    public boolean isLimitForLocation() {
+        return isLimitForLocation;
+    }
+
+    public void setLimitForLocation(boolean limitForLocation) {
+        isLimitForLocation = limitForLocation;
     }
 }

@@ -26,7 +26,15 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
+import java.util.stream.IntStream;
 
+import ranking.da.ftims.darankingagent.rest.DARankingAppDriver;
+import ranking.da.ftims.darankingagent.rest.GisService;
+import ranking.da.ftims.darankingagent.rest.TokenCredentials;
+import ranking.da.ftims.darankingagent.service.DALocationService;
+import ranking.da.ftims.darankingagent.trip.Trip;
+import ranking.da.ftims.darankingagent.rest.TripSyncResponse;
+import ranking.da.ftims.darankingagent.trip.TripVM;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -35,7 +43,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class DrivingAnalyticsAgent extends AppCompatActivity implements LocationListener, SensorEventListener {
 
-    //private static final Integer CALCULATION_POINTS = 2;
     private static final String GIS_PORT = "8081";
     private static final SimpleDateFormat SDF = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.getDefault());
     private static final SimpleDateFormat SDF_AGENT = new SimpleDateFormat("HH:mm:ss dd/MM/yyyy", Locale.getDefault());
@@ -65,19 +72,21 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
     private FloatingActionButton syncTripButton;
 
     private LocationManager locManager;
-    //private LocationListener locListener;
     private Trip.onServiceUpdate onServiceUpdate;
 
     private SensorManager senManager;
     private Sensor gSensor;
 
     private long lastUpdate;
-    private static final float NOISE_THRESHOLD = 2f;
-    private float last_x = 0f, last_y = 0f, last_z = 0f, last_v =0f;
-
+    private static final float NOISE_THRESHOLD = 0.25f;
+    private static final int S = 1000;
+    private float[] gValues;
+    private float[] sumGValues = new float[3];
+    private int i_acc = 0;
     private String url;
     private Retrofit retrofit;
-    static GisService gisService;
+
+    private static GisService gisService;
 
     private boolean firstfix;
 
@@ -88,11 +97,9 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         driver = (DARankingAppDriver) getIntent().getSerializableExtra("driver");
         initGisService();
-
         setContentView(R.layout.activity_driving_analytics_agent);
 
         trip = new Trip(onServiceUpdate, driver);
-
         onServiceUpdate = new Trip.onServiceUpdate() {
             @Override
             public void update() {
@@ -101,7 +108,11 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                 mDistanceView.setText(displayDist);
                 int speedLimit = trip.getSpeedLimit();
                 String displaySpeedLimit = String.valueOf(speedLimit);
-                mSpeedLimitView.setText(displaySpeedLimit);
+                if(trip.isLimitForLocation()){
+                    mSpeedLimitView.setText(displaySpeedLimit);
+                }else{
+                    mSpeedLimitView.setText(displaySpeedLimit.concat("!"));
+                }
                 if(trip.isSpeeding()){
                     mStatusBarView.setText("Speeding!");
                     String displayMaxspeed = trip.getMaxSpeed().toString();
@@ -111,12 +122,12 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
                     mSpeedingDistView.setText(displaySpeedingDist);
                 }else if(trip.isSuddenBreaking()){
                     mStatusBarView.setText("Sudden Breaking!");
-                    String displaySudddenBreaking = trip.getSuddenBrakingNo().toString();
-                    mBraksNoView.setText(displaySudddenBreaking);
+                    String displaySuddenBreaking = trip.getSuddenBrakingNo().toString();
+                    mBraksNoView.setText(displaySuddenBreaking);
                 }else if(trip.isSuddenAcc()){
                     mStatusBarView.setText("Sudden Acceleration!");
-                    String displaySudddenAcc = trip.getSuddenAccNo().toString();
-                    mAccNoView.setText(displaySudddenAcc);
+                    String displaySuddenAcc = trip.getSuddenAccNo().toString();
+                    mAccNoView.setText(displaySuddenAcc);
                 }else{
                     mStatusBarView.setText("Safe driving :)");
                 }
@@ -124,8 +135,8 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         };
 
         mDriverView = findViewById(R.id.driver);
-        mDriverView.setText(driver.name);
-        Log.i("DA", "Driver: " + driver.name);
+        mDriverView.setText(driver.getName());
+        Log.i("DA", "Driver: " + driver.getName());
 
         mSpeedView = findViewById(R.id.speed);
         mSatellitesView = findViewById(R.id.satellites);
@@ -187,23 +198,25 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         Log.i("DA", "LocationManager");
         locManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
         senManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
-        gSensor = senManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        gSensor = senManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         senManager.registerListener(this, gSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        //locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
-        //locManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 500, 0, locListener);
     }
 
     private void initGisService(){
         url = (String) getIntent().getSerializableExtra("url");
         StringBuffer server = new StringBuffer(url.substring(0, url.lastIndexOf(':') + 1));
-        server.append(":");
         server.append(GIS_PORT);
         retrofit = new Retrofit.Builder().baseUrl(server.toString()).addConverterFactory((GsonConverterFactory.create())).build();
         gisService = retrofit.create(GisService.class);
     }
 
+    public static GisService getGisService() {
+        return gisService;
+    }
+
     public void onStartClick(View v){
         if (!trip.isRunning()) {
+            mStatusBarView.setText("Trip started");
             pauseButton.setVisibility(View.VISIBLE);
             trip.setRunning(true);
             Date now = Calendar.getInstance().getTime();
@@ -224,7 +237,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         if (trip.isRunning()){
             pauseButton.setVisibility(View.INVISIBLE);
             trip.setRunning(false);
-            mStatusBarView.setText("");
+            mStatusBarView.setText("Trip is paused");
             stopService(new Intent(getBaseContext(), DALocationService.class));
             resetButton.setVisibility(View.VISIBLE);
             startButton.setVisibility(View.VISIBLE);
@@ -233,69 +246,71 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
     }
 
     public void onResetClick(View v){
-        resetData();
-        stopService(new Intent(getBaseContext(), DALocationService.class));
-    }
-
-    public void onSyncTripClick(final View v){
-        Log.i("DA", "Sending trip to server...");
-        TripVM tripVM = new TripVM();
-        tripVM.distance = trip.getDistance();
-        tripVM.driver = trip.getDriver().id;
-        tripVM.duration = getTimeString(trip.getTime());
-        tripVM.maxSpeedingVelocity = trip.getMaxSpeed();
-        tripVM.speedingDistance = trip.getSpeedingDistance();
-        tripVM.start = SDF.format(trip.getStartDate());
-        tripVM.suddenAccelerations = trip.getSuddenAccNo();
-        tripVM.suddenBrakings = trip.getSuddenBrakingNo();
-        Log.i("DA", tripVM.toString());
-
-        Call<TripSyncResponse> TripSyncResponse = LoginActivity.service.createTripFromAgent(TokenCredentials.tokenId, tripVM);
-        try{
-            TripSyncResponse.enqueue(new Callback<TripSyncResponse>() {
-                @Override
-                public void onResponse(Call<TripSyncResponse> call, Response<TripSyncResponse> response) {
-                    if(response.isSuccessful()){
-                        Log.i("DA", "Success: " + response.body().toString());
-                        onResetClick(v);
-                    }
-                }
-                @Override
-                public void onFailure(Call<TripSyncResponse> call, Throwable t) {
-                    Log.e("DA", "Fail: " + t.toString());
-                }
-            });
-        }
-        catch(Exception e){
-            Log.e("DA", "Exception: " + e.toString());
-        }
-    }
-
-    public void resetData(){
         resetButton.setVisibility(View.INVISIBLE);
         pauseButton.setVisibility(View.INVISIBLE);
         syncTripButton.setVisibility(View.INVISIBLE);
         mTimeView.stop();
         mStartDateTime.setText("");
         mBraksNoView.setText("");
+        mAccNoView.setText("");
         mSpeedingVMaxView.setText("");
         mSpeedingDistView.setText("");
         mSpeedLimitView.setText("");
         mSpeedView.setText("");
         mDistanceView.setText("");
         mTimeView.setText("00:00:00");
+        mStatusBarView.setText("New trip");
         trip = new Trip(onServiceUpdate, driver);
+        stopService(new Intent(getBaseContext(), DALocationService.class));
+    }
+
+    public void onSyncTripClick(final View v){
+        if(!trip.isRunning()){
+            Log.i("DA", "Sending trip to server...");
+            mStatusBarView.setText("Sending trip to server...");
+            TripVM tripVM = new TripVM();
+            tripVM.setDistance(trip.getDistance());
+            tripVM.setDriver(trip.getDriver().getId());
+            tripVM.setDuration(getTimeString(trip.getTime()));
+            tripVM.setMaxSpeedingVelocity(trip.getMaxSpeed());
+            tripVM.setSpeedingDistance(trip.getSpeedingDistance());
+            tripVM.setStart(SDF.format(trip.getStartDate()));
+            tripVM.setSuddenAccelerations(trip.getSuddenAccNo());
+            tripVM.setSuddenBrakings(trip.getSuddenBrakingNo());
+            Log.i("DA", tripVM.toString());
+
+            Call<TripSyncResponse> TripSyncResponse = LoginActivity.service.createTripFromAgent(TokenCredentials.getTokenId(), tripVM);
+            try{
+                TripSyncResponse.enqueue(new Callback<TripSyncResponse>() {
+                    @Override
+                    public void onResponse(Call<TripSyncResponse> call, Response<TripSyncResponse> response) {
+                        if(response.isSuccessful()){
+                            Log.i("DA", "Success: " + response.body().toString());
+                            onResetClick(v);
+                        }
+                    }
+                    @Override
+                    public void onFailure(Call<TripSyncResponse> call, Throwable t) {
+                        Log.e("DA", "Fail: " + t.toString());
+                    }
+                });
+            }
+            catch(Exception e){
+                Log.e("DA", "Exception: " + e.toString());
+            }
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
         locManager.removeUpdates(this);
+        senManager.unregisterListener(this);
         SharedPreferences.Editor prefsEditor = sharedPreferences.edit();
         Gson gson = new Gson();
         String json = gson.toJson(trip);
         prefsEditor.putString("trip", json);
-        prefsEditor.commit();
+        prefsEditor.apply();
     }
 
     @Override
@@ -304,7 +319,7 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         firstfix = true;
         if (!trip.isRunning()){
             Gson gson = new Gson();
-            String json = sharedPreferences.getString("tri[", "");
+            String json = sharedPreferences.getString("trip[", "");
             trip = gson.fromJson(json, Trip.class);
         }
         if (trip == null){
@@ -312,19 +327,9 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
         }else{
             trip.setOnGpsServiceUpdate(onServiceUpdate);
         }
-
-        if (locManager.getAllProviders().indexOf(LocationManager.GPS_PROVIDER) >= 0) {
-            locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
-        } else {
-            Log.w("MainActivity", "No GPS location provider found. GPS data display will not be available.");
+        locManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500, 0, this);
+        senManager.registerListener(this, gSensor, SensorManager.SENSOR_DELAY_NORMAL);
         }
-
-        if (!locManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-            showGpsDisabledDialog();
-        }
-
-        //locManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locListener);
-    }
 
     @Override
     public void onDestroy(){
@@ -338,7 +343,6 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
             Float accuracy = location.getAccuracy();
             String displayAccuracy = accuracy.toString();
             mAccuracyView.setText(displayAccuracy);
-
             if (firstfix){
                 mStatusBarView.setText("");
                 startButton.setVisibility(View.VISIBLE);
@@ -351,10 +355,11 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
             firstfix = true;
         }
         if (location.hasSpeed()) {
-            Float speed = location.getSpeed() * 3.6f;
+            Double speed = location.getSpeed() * 3.6;
             String displaySpeed = String.valueOf(speed.intValue());
             mSpeedView.setText(displaySpeed);
         }
+
         Double lat = location.getLatitude();
         String displayLatitude = String.format("%.6f", lat);
         mLatitudeView.setText(displayLatitude);
@@ -387,19 +392,10 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
 
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-        Log.i("DA", "Status changed ");
-        Log.i("DA", "Status changed: " + provider);
-        Log.i("DA", "Status changed: " + status);
-        Log.i("DA", "Status changed: " + extras.toString());
         if (extras.get("satellites") != null) {
             String displaySatellites = String.valueOf(extras.getInt("satellites"));
             mSatellitesView.setText(displaySatellites);
-            Log.i("DA", "Satellites: " + String.valueOf(extras.getInt("satellites")));
         }
-    }
-
-    public void showGpsDisabledDialog(){
-        Log.e("DA", "GPS Disabled!");
     }
 
     public static Trip getTrip() {
@@ -425,32 +421,39 @@ public class DrivingAnalyticsAgent extends AppCompatActivity implements Location
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            float x = event.values[0];
-            float y = event.values[1];
-            float z = event.values[2];
+        if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+            gValues = lowPass(event.values.clone(), gValues);
+            for (int i = 0; i < gValues.length; i++) {
+                sumGValues[i] += gValues[i];
+            }
+            i_acc++;
             long curTime = System.currentTimeMillis();
-            if ((curTime - lastUpdate) > 1000) {
-                long diffTime = (curTime - lastUpdate);
+            if ((curTime - lastUpdate) >= S) {
+                float x_avg = sumGValues[0]/i_acc;
+                float y_avg = sumGValues[1]/i_acc;
+                float z_avg = sumGValues[2]/i_acc;
+                i_acc = 0;
+                sumGValues = new float[3];
+                long diffTime = curTime - lastUpdate;
                 lastUpdate = curTime;
-                float g = (x * x + y * y + z * z)/(SensorManager.GRAVITY_EARTH * SensorManager.GRAVITY_EARTH);
-                float v = Math.abs(x + y + z - last_x - last_y - last_z)/ diffTime * 10000;
-                if (NOISE_THRESHOLD > g) {
-                    g = 0f;
-                    v = 0f;
-                }
+                double g = Math.sqrt(x_avg * x_avg + y_avg * y_avg + z_avg * z_avg);
+                double v = g * diffTime/S;
                 StringBuffer sb = new StringBuffer();
-                sb.append(g);
-                sb.append(" m/s2 ");
-                sb.append(v);
-                sb.append(" m/s");
+                sb.append(String.format("%.2f", g));
+                sb.append("[m/s2] ");
+                sb.append(String.format("%.2f", v));
+                sb.append("[m/s]");
                 mGView.setText(sb.toString());
-                last_x = x;
-                last_y = y;
-                last_z = z;
-                last_v = v;
             }
         }
+    }
+
+    protected float[] lowPass( float[] input, float[] output ) {
+        if ( output == null ) return input;
+        for ( int i=0; i<input.length; i++ ) {
+            output[i] = output[i] + NOISE_THRESHOLD * (input[i] - output[i]);
+        }
+        return output;
     }
 
     @Override

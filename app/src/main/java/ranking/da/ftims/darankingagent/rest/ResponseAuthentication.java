@@ -1,6 +1,6 @@
-package ranking.da.ftims.darankingagent;
+package ranking.da.ftims.darankingagent.rest;
 
-class ResponseAuthentication {
+public class ResponseAuthentication {
     public String getTokenId() {
         return tokenId;
     }
@@ -9,5 +9,5 @@ class ResponseAuthentication {
         this.tokenId = tokenId;
     }
 
-    String tokenId;
+    private String tokenId;
 }
