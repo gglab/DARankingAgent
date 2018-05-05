@@ -37,8 +37,8 @@ public class DALocationService extends Service implements LocationListener, Sens
     private Sensor gSensor;
     private long lastUpdate;
 
-    private static final float BREAKS_THRESHOLD = 4f;
-    private static final float ACC_THRESHOLD = 3f;
+    private static final float BREAKS_THRESHOLD = 3f;
+    private static final float ACC_THRESHOLD = 2f;
     private static final float NOISE_THRESHOLD = 0.25f;
     private static final int S = 1000;
     private float[] gValues;
@@ -118,6 +118,7 @@ public class DALocationService extends Service implements LocationListener, Sens
                         }catch(NumberFormatException e){
                             Log.w("DA", "No speed limit value for given location: " + response.body());
                             trip.setLimitForLocation(false);
+                            trip.setDefaultSpeedLimit();
                         }
                     }
                 }
@@ -125,6 +126,7 @@ public class DALocationService extends Service implements LocationListener, Sens
                 public void onFailure(Call<String> call, Throwable t) {
                     Log.e("DA", "Fail: " + t.toString());
                     trip.setLimitForLocation(false);
+                    trip.setDefaultSpeedLimit();
                 }
             });
         }

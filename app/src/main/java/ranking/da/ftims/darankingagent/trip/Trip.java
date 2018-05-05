@@ -5,6 +5,7 @@ import ranking.da.ftims.darankingagent.rest.DARankingAppDriver;
 
 public class Trip {
 
+    private static final Integer DEFAULT_SPEED_LIMIT = 90;
     private boolean isRunning;
     private boolean isSpeeding;
     private boolean isSuddenAcc;
@@ -104,13 +105,17 @@ public class Trip {
         suddenBrakingNo = 0;
         suddenAccNo = 0;
         time = 0L;
-        speedLimit = 50;
+        speedLimit = DEFAULT_SPEED_LIMIT;
         isSpeeding = false;
         isLimitForLocation = false;
         isSuddenAcc = false;
         isSuddenBreaking = false;
         this.driver = driver;
         setOnGpsServiceUpdate(onGpsServiceUpdate);
+    }
+
+    public void setDefaultSpeedLimit(){
+        setSpeedLimit(DEFAULT_SPEED_LIMIT);
     }
 
     public void addDistance(long distance){
