@@ -44,12 +44,12 @@ public class DALocationService extends Service implements LocationListener, Sens
     private float[] gValues;
     private float[] sumGValues = new float[3];
     private int i_acc = 0;
-    private double last_v = 0;
 
     @Override
     public void onCreate() {
 
         lastLocation = new Location("last");
+        lastLocation.setSpeed(0f);
         currentLongitude = currentLatitude = lastLatitude = lastLongitude = 0d;
         currentSpeedLimit = 50;
         senManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
@@ -84,9 +84,15 @@ public class DALocationService extends Service implements LocationListener, Sens
                 lastLatitude = currentLatitude;
                 lastLongitude = currentLongitude;
             }
-            if (location.hasSpeed()) {
+            if (location.hasSpeed()){
+                float speedMS = location.getSpeed();
+                if(speedMS<lastLocation.getSpeed()){
+                  trip.setSlowing(true);
+                }else{
+                    trip.setSlowing(false);
+                }
                 lastLocation.setSpeed(location.getSpeed());
-                Double speed = location.getSpeed() * 3.6d;
+                Double speed = speedMS * 3.6d;
                 trip.setCurSpeed(speed.intValue());
                 if (speed > trip.getSpeedLimit().doubleValue() && location.getAccuracy() < distance) {
                     trip.addSpeedingDistance(distance.longValue());
@@ -184,11 +190,11 @@ public class DALocationService extends Service implements LocationListener, Sens
                     lastUpdate = curTime;
                     double g = Math.sqrt(x_avg * x_avg + y_avg * y_avg + z_avg * z_avg);
                     double v = g * diffTime/S;
-                    if (g > BREAKS_THRESHOLD && last_v > v) {
+                    if (g > BREAKS_THRESHOLD && trip.isSlowing() ) {
                         trip.addSuddenBrakingNo();
                         trip.setSuddenBreaking(true);
                         trip.setSuddenAcc(false);
-                    } else if (g > ACC_THRESHOLD && last_v < v) {
+                    } else if (g > ACC_THRESHOLD && !trip.isSlowing()) {
                         trip.addSuddenAccNo();
                         trip.setSuddenBreaking(false);
                         trip.setSuddenAcc(true);
@@ -196,7 +202,6 @@ public class DALocationService extends Service implements LocationListener, Sens
                         trip.setSuddenAcc(false);
                         trip.setSuddenAcc(false);
                     }
-                    last_v = v;
                 }
             }
         }

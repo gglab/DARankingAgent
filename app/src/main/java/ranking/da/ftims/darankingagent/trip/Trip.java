@@ -11,6 +11,16 @@ public class Trip {
     private boolean isSuddenAcc;
     private boolean isSuddenBreaking;
     private boolean isLimitForLocation;
+
+    public boolean isSlowing() {
+        return isSlowing;
+    }
+
+    public void setSlowing(boolean slowing) {
+        isSlowing = slowing;
+    }
+
+    private boolean isSlowing;
     private Long time;
     private boolean isFirstTime;
     private Date startDate;
@@ -111,6 +121,7 @@ public class Trip {
         isSuddenAcc = false;
         isSuddenBreaking = false;
         this.driver = driver;
+        isSlowing = false;
         setOnGpsServiceUpdate(onGpsServiceUpdate);
     }
 
